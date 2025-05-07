@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../AuthContext";
-import { FaHourglassStart } from "react-icons/fa";
+import { FaCross, FaHourglassStart } from "react-icons/fa";
+import { IoMdClose } from "react-icons/io";
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
@@ -43,26 +44,52 @@ console.log(res);
     fetchSchedules();
   }, [activeTab]);
 
-  const handleStart = (item) => {
-    console.log("Degree Program:", item.degree_program);
-    console.log("Semester:", item.semester);
-
+  const handleStart = async (item) => {
+    if (!user?.userData?.token || !user?.userData?.teacher_id) {
+      setError("Authentication error: Missing token or teacher ID.");
+      return;
+    }
+  
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          console.log("Current Location:", {
+        async (position) => {
+          const payload = {
+            teacher_id: user.userData.teacher_id,
+            degree_program: item.degree_program,
+            semester: item.semester,
+            section: item.section || "A", // Default if not provided
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-          });
+          };
+  
+          try {
+            const res = await axios.post(
+              `${import.meta.env.VITE_SERVER_URL}/api/start-class/`,
+              payload,
+              {
+                headers: {
+                  Authorization: `Token ${user.userData.token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+            console.log("Class started successfully:", res.data);
+            alert("Class started successfully!");
+          } catch (err) {
+            console.error("Error starting class:", err);
+            setError("Failed to start class.");
+          }
         },
         (error) => {
-          console.error("Error getting location:", error.message);
+          console.error("Geolocation error:", error.message);
+          setError("Location permission denied.");
         }
       );
     } else {
-      console.error("Geolocation is not supported by this browser.");
+      setError("Geolocation not supported by this browser.");
     }
   };
+  
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -128,13 +155,20 @@ console.log(res);
                     {item.start_time} - {item.end_time}
                   </td>
                   <td className="px-4 py-2">
-                    <button
+                    {activeTab == 'today' ? (  <button
                       onClick={() => handleStart(item)}
                       className="bg-primary text-sm text-white px-3 py-1 mx-auto flex items-center justify-center gap-2 rounded hover:bg-blue-600"
                     >
                       <FaHourglassStart/>
                       Start
-                    </button>
+                    </button>):(  <button
+                      onClick={() => handleStart(item)}
+                      className="bg-red-500 text-sm text-white px-3 py-1 mx-auto flex items-center justify-center gap-2 rounded hover:bg-blue-600"
+                    >
+                      <IoMdClose/>
+                      Cancel
+                    </button>)}
+                  
                   </td>
                 </tr>
               ))}

@@ -6,26 +6,23 @@ import { FaSearch } from "react-icons/fa";
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("today");
-  const [schedules, setSchedules] = useState([]);
+
+  const [todaySchedules, setTodaySchedules] = useState([]);
+  const [allSchedules, setAllSchedules] = useState([]);
   const [courseList, setCourseList] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState("");
+
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const { degree_program, semester, token } = user?.userData || {};
 
-  // Fetch courses for dropdown
   const fetchCourses = async () => {
     if (!degree_program || !semester || !token) return;
-
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/api/course-by-degree-program/${degree_program}/${semester}/`,
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        }
+        `${import.meta.env.VITE_SERVER_URL}/api/course-of-students/${degree_program}/${semester}`,
+        { headers: { Authorization: `Token ${token}` } }
       );
       setCourseList(res.data.course_codes || []);
     } catch (err) {
@@ -33,90 +30,60 @@ export default function StudentDashboard() {
     }
   };
 
-  // Fetch all/today schedules
-  const fetchSchedules = async () => {
+  const fetchTodaySchedules = async () => {
+    if (!degree_program || !semester || !token) return;
     setLoading(true);
-    if (!degree_program || !semester || !token) {
-      setError("Missing student information or token.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await axios.get(
         `${import.meta.env.VITE_SERVER_URL}/api/student-schedules/${degree_program}/${semester}/`,
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        }
+        { headers: { Authorization: `Token ${token}` } }
       );
-
-      if (activeTab === "today") {
-        setSchedules(res.data.today_schedule || []);
-      } else {
-        setSchedules(res.data.all_schedules || []);
-      }
-
+      const { schedules, class_started } = res.data;
+      setTodaySchedules(
+        Array.isArray(schedules)
+          ? schedules.map((item) => ({ ...item, class_started }))
+          : []
+      );
       setError(null);
     } catch (err) {
-      console.error("Error fetching schedules:", err);
-      setError("Failed to load schedule.");
+      console.error(err);
+      setError("Failed to fetch today's schedule.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch schedules by course
   const fetchSchedulesByCourse = async () => {
-    if (!selectedCourse || !token) {
-      setError("Please select a course.");
-      return;
-    }
-
+    if (!selectedCourse || !token) return;
     setLoading(true);
-
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/api/course-of-student/${selectedCourse}/`,
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        }
+        `${import.meta.env.VITE_SERVER_URL}/api/schedules-by-course/${selectedCourse}/`,
+        { headers: { Authorization: `Token ${token}` } }
       );
-      console.log(res);
-      
-
-      if (Array.isArray(res.data)) {
-        setSchedules(res.data);
-        setError(null);
-      } else {
-        setSchedules([]);
-        setError("Unexpected response format.");
-      }
+      setAllSchedules(Array.isArray(res.data) ? res.data : []);
+      setError(null);
     } catch (err) {
-      console.error("Error fetching course schedule:", err);
-      setError("Failed to fetch schedule for the selected course.");
-      setSchedules([]);
+      console.error(err);
+      setError("Failed to fetch schedule for selected course.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSchedules();
-    if (activeTab === "all") {
-      fetchCourses();
-    }
+    if (activeTab === "today") fetchTodaySchedules();
+    if (activeTab === "all") fetchCourses();
   }, [activeTab]);
 
-  if (loading)
-    return (
-      <div className="flex justify-center items-center py-6">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (activeTab === "today") fetchTodaySchedules();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
+  const scheduleData = activeTab === "today" ? todaySchedules : allSchedules;
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -136,7 +103,6 @@ export default function StudentDashboard() {
           Section: {user?.userData?.section}
         </p>
 
-        {/* Tabs */}
         <div className="flex space-x-4 my-4 text-sm">
           <button
             onClick={() => setActiveTab("today")}
@@ -160,7 +126,6 @@ export default function StudentDashboard() {
           </button>
         </div>
 
-        {/* Dropdown for filtering All Schedules */}
         {activeTab === "all" && (
           <div className="flex items-center gap-2 my-4">
             <select
@@ -169,48 +134,54 @@ export default function StudentDashboard() {
               className="border px-3 py-1.5 text-sm rounded w-full"
             >
               <option value="">Select a course</option>
-              {Array.isArray(courseList) &&
-                courseList.map((course, idx) => (
-                  <option key={idx} value={course}>
-                    {course}
-                  </option>
-                ))}
+              {courseList.map((course, idx) => (
+                <option key={idx} value={course}>
+                  {course}
+                </option>
+              ))}
             </select>
             <button
               onClick={fetchSchedulesByCourse}
               className="bg-primary text-sm text-white flex items-center gap-2 px-4 py-1.5 rounded hover:bg-blue-700"
             >
-              Search
-              <FaSearch />
+              Search <FaSearch />
             </button>
           </div>
         )}
 
-        {/* Error Message */}
         {error && (
           <p className="mt-2 text-sm text-red-600 font-medium">{error}</p>
         )}
 
-        {/* Schedule Table */}
-        {schedules.length > 0 ? (
+        {scheduleData.length > 0 ? (
           <table className="w-full mt-4 border border-gray-300">
             <thead>
               <tr className="bg-gray-200">
+                <th className="border px-4 py-2">Teacher Name</th>
                 <th className="border px-4 py-2">Course</th>
                 <th className="border px-4 py-2">Date</th>
                 <th className="border px-4 py-2">Time</th>
-                <th className="border px-4 py-2">Room</th>
+                <th className="border px-4 py-2">Action</th>
               </tr>
             </thead>
             <tbody>
-              {schedules.map((item, idx) => (
+              {scheduleData.map((item, idx) => (
                 <tr key={idx} className="text-center">
+                  <td className="border px-4 py-2">{item.teacher_name}</td>
                   <td className="border px-4 py-2">{item.course_name}</td>
                   <td className="border px-4 py-2">{item.lecture_date}</td>
                   <td className="border px-4 py-2">
                     {item.start_time} - {item.end_time}
                   </td>
-                  <td className="border px-4 py-2">{item.room || "N/A"}</td>
+                  <td className="border px-4 py-2">
+                    {item.class_started ? (
+                      <button className="text-green-600 font-semibold">
+                        Mark Attendance
+                      </button>
+                    ) : (
+                      <button className="text-gray-500">Not Started</button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
