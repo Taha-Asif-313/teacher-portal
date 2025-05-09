@@ -12,21 +12,17 @@ export const AuthProvider = ({ children }) => {
     return localStorage.getItem("token") || "";
   });
 
-  // Update localStorage whenever user or token changes
+  const [classroomData, setClassroomData] = useState(null); // New state
+
+  // LocalStorage sync
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
-    } else {
-      localStorage.removeItem("user");
-    }
+    if (user) localStorage.setItem("user", JSON.stringify(user));
+    else localStorage.removeItem("user");
   }, [user]);
 
   useEffect(() => {
-    if (token) {
-      localStorage.setItem("token", token);
-    } else {
-      localStorage.removeItem("token");
-    }
+    if (token) localStorage.setItem("token", token);
+    else localStorage.removeItem("token");
   }, [token]);
 
   return (
@@ -35,7 +31,9 @@ export const AuthProvider = ({ children }) => {
         user,
         token,
         setToken,
-        login: setUser, // alias for setUser
+        login: setUser,
+        classroomData,
+        setClassroomData, // expose setter
       }}
     >
       {children}

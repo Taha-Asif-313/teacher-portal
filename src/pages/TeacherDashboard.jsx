@@ -3,9 +3,12 @@ import axios from "axios";
 import { useAuth } from "../AuthContext";
 import { FaCross, FaHourglassStart } from "react-icons/fa";
 import { IoMdClose } from "react-icons/io";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 export default function TeacherDashboard() {
-  const { user } = useAuth();
+  const { user , setClassroomData } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("today"); // "today" | "all"
   const [schedules, setSchedules] = useState([]);
   const [error, setError] = useState(null);
@@ -73,8 +76,14 @@ console.log(res);
                 },
               }
             );
+  
             console.log("Class started successfully:", res.data);
-            alert("Class started successfully!");
+  
+            // ✅ Set the classroom context with the response data
+            setClassroomData(res.data);
+  
+            toast.success("Class started successfully!");
+            navigate("/class-room");
           } catch (err) {
             console.error("Error starting class:", err);
             setError("Failed to start class.");

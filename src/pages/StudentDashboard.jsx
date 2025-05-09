@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../AuthContext";
 import { FaSearch } from "react-icons/fa";
+import AttendanceModal from "./AttendanceModal";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -11,17 +12,19 @@ export default function StudentDashboard() {
   const [allSchedules, setAllSchedules] = useState([]);
   const [courseList, setCourseList] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState("");
-
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-
   const { degree_program, semester, token } = user?.userData || {};
 
   const fetchCourses = async () => {
     if (!degree_program || !semester || !token) return;
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/api/course-of-students/${degree_program}/${semester}`,
+        `${
+          import.meta.env.VITE_SERVER_URL
+        }/api/course-of-students/${degree_program}/${semester}`,
         { headers: { Authorization: `Token ${token}` } }
       );
       setCourseList(res.data.course_codes || []);
@@ -35,7 +38,9 @@ export default function StudentDashboard() {
     setLoading(true);
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/api/student-schedules/${degree_program}/${semester}/`,
+        `${
+          import.meta.env.VITE_SERVER_URL
+        }/api/student-schedules/${degree_program}/${semester}/`,
         { headers: { Authorization: `Token ${token}` } }
       );
       const { schedules, class_started } = res.data;
@@ -58,7 +63,9 @@ export default function StudentDashboard() {
     setLoading(true);
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/api/schedules-by-course/${selectedCourse}/`,
+        `${
+          import.meta.env.VITE_SERVER_URL
+        }/api/schedules-by-course/${selectedCourse}/`,
         { headers: { Authorization: `Token ${token}` } }
       );
       setAllSchedules(Array.isArray(res.data) ? res.data : []);
@@ -69,6 +76,16 @@ export default function StudentDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenModal = (schedule) => {
+    setSelectedSchedule(schedule);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedSchedule(null);
   };
 
   useEffect(() => {
@@ -175,7 +192,10 @@ export default function StudentDashboard() {
                   </td>
                   <td className="border px-4 py-2">
                     {item.class_started ? (
-                      <button className="text-green-600 font-semibold">
+                      <button
+                        onClick={() => handleOpenModal(item)}
+                        className="text-white bg-primary rounded py-1 px-2 font-semibold"
+                      >
                         Mark Attendance
                       </button>
                     ) : (
@@ -192,6 +212,13 @@ export default function StudentDashboard() {
           </div>
         )}
       </div>
+      {/* Modal for attendance */}
+      <AttendanceModal
+        isOpen={isModalOpen}
+        closeModal={handleCloseModal}
+        schedule={selectedSchedule}
+        user={user}
+      />
     </div>
   );
 }
